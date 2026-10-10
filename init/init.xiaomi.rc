@@ -1,0 +1,129 @@
+on post-fs-data
+#flashlight permission
+    chmod 0660 /sys/class/leds/led:torch/brightness
+    chown system system /sys/class/leds/led:torch/brightness
+    chmod 0660 /sys/class/leds/vibrator/state
+    chown system system /sys/class/leds/vibrator/state
+    chmod 0660 /sys/class/leds/vibrator/duration
+    chown system system /sys/class/leds/vibrator/duration
+    chmod 0660 /sys/class/leds/vibrator/activate
+    chown system system /sys/class/leds/vibrator/activate
+    chmod 0660 /sys/devices/platform/soc/soc:pwm_vibrator/leds/vibrator/state
+    chown system system /sys/devices/platform/soc/soc:pwm_vibrator/leds/vibrator/state
+    chmod 0660 /sys/devices/platform/soc/soc:pwm_vibrator/leds/vibrator/duration
+    chown system system /sys/devices/platform/soc/soc:pwm_vibrator/leds/vibrator/duration
+    chmod 0660 /sys/devices/platform/soc/soc:pwm_vibrator/leds/vibrator/activate
+    chown system system /sys/devices/platform/soc/soc:pwm_vibrator/leds/vibrator/activate
+
+#odm-battery
+   chmod 0664 /sys/class/qcom-battery/odm_battery/batt_manufacturer
+   chown system system /sys/class/qcom-battery/odm_battery/batt_manufacturer
+   chmod 0664 /sys/class/qcom-battery/odm_battery/cc_manufacturer
+   chown system system /sys/class/qcom-battery/odm_battery/cc_manufacturer
+   chmod 0664 /sys/class/qcom-battery/odm_battery/cp_manufacturer
+   chown system system /sys/class/qcom-battery/odm_battery/cp_manufacturer
+   chmod 0664 /sys/class/qcom-battery/odm_battery/ds_manufacturer
+   chown system system /sys/class/qcom-battery/odm_battery/ds_manufacturer
+
+#add for ssr
+    chmod 0666 /sys/devices/platform/soc/b300000.remoteproc-cdsp/remoteproc/remoteproc1/recovery
+    chown system system /sys/devices/platform/soc/b300000.remoteproc-cdsp/remoteproc/remoteproc1/recovery
+    chmod 0666 /sys/devices/platform/soc/ab00000.remoteproc-adsp/remoteproc/remoteproc0/recovery
+    chown system system /sys/devices/platform/soc/ab00000.remoteproc-adsp/remoteproc/remoteproc0/recovery
+    chmod 0666 /sys/devices/platform/soc/6080000.remoteproc-mss/remoteproc/remoteproc2/recovery
+    chown system system /sys/devices/platform/soc/6080000.remoteproc-mss/remoteproc/remoteproc2/recovery
+
+# Create factory dualcam calibration contents --tongzhiqiang-20220929 start
+    mkdir /mnt/vendor/persist/camera
+    chown root system /mnt/vendor/persist/camera
+    chmod 0777 /mnt/vendor/persist/camera
+    chmod 0644 /mnt/vendor/persist/camera/rear_dc_cal_wu.bin
+    chmod 0777 /data/vendor/camera
+    chmod 0666 /data/vendor/camera/com.xiaomi.dcal.wu.data
+# Create factory dualcam calibration contents --tongzhiqiang-20220929 end
+
+# Create miui dualcam calibration file --qiankaifeng-20221117 start
+    write /data/vendor/camera/wide_w[4080]_h[3072].NV12 0
+    write /data/vendor/camera/ultra_w[3264]_h[2448].NV12 0
+    chmod 0666 /data/vendor/camera/wide_w[4080]_h[3072].NV12
+    chmod 0666 /data/vendor/camera/ultra_w[3264]_h[2448].NV12
+# Create miui dualcam calibration file --qiankaifeng-20221117 end
+
+#start tombstones/modem
+    mkdir /data/tombstones/modem 0771 system system encryption=Require
+
+on boot
+    #add ant_check
+    chmod 0777 /sys/class/ant_class/ant_state
+    chmod 0777 /sys/class/ant_div_class/ant_div_state
+    chown system system /sys/class/ant_class/ant_state
+    chown system system /sys/class/ant_div_class/ant_div_state
+
+    # Add a cpuset for the camera daemon
+    # We want all cores for camera
+    mkdir /dev/cpuset/camera-daemon
+    write /dev/cpuset/camera-daemon/cpus 0-7
+    write /dev/cpuset/camera-daemon/mems 0
+    chown cameraserver cameraserver /dev/cpuset/camera-daemon
+    chown cameraserver cameraserver /dev/cpuset/camera-daemon/tasks
+    chmod 0660 /dev/cpuset/camera-daemon/tasks
+
+service vendor.camera-provider-2-4 /vendor/bin/hw/android.hardware.camera.provider@2.4-service_64
+    override
+    interface android.hardware.camera.provider@2.4::ICameraProvider legacy/0
+    interface vendor.qti.hardware.camera.postproc@1.0::IPostProcService camerapostprocservice
+    class hal
+    user cameraserver
+    group audio camera input drmrpc oem_2907
+    ioprio rt 4
+    capabilities SYS_NICE
+    writepid /dev/cpuset/camera-daemon/tasks /dev/stune/foreground/tasks
+
+service vendor.audio-hal /vendor/bin/hw/android.hardware.audio.service_64
+    override
+    class hal
+    user audioserver
+    # media gid needed for /dev/fm (radio) and for /data/misc/media (tee)
+    group audio camera drmrpc inet media mediadrm net_bt net_bt_admin net_bw_acct oem_2901 wakelock
+    capabilities BLOCK_SUSPEND SYS_NICE
+    # setting RLIMIT_RTPRIO allows binder RT priority inheritance
+    rlimit rtprio 10 10
+    ioprio rt 4
+    task_profiles ProcessCapacityHigh HighPerformance
+    onrestart restart audioserver
+
+# add audio agmhostless_loop beign
+service agmhostless_loop_headset /vendor/bin/agmhostless -D 100 -P 103 -C 104 -r 48000 -b 16 -T 60 -i CODEC_DMA-LPAIF_RXTX-TX-3 -o CODEC_DMA-LPAIF_RXTX-RX-0 -pdkv 0xA2000002
+    user root
+    group root audio system
+    disabled
+    oneshot
+
+#service agmhostless_loop_hsmic_rcv /vendor/bin/agmhostless -D 100 -P 103 -C 104 -c 1 -r 48000 -b 16 -T 60 -i CODEC_DMA-LPAIF_RXTX-TX-3 -o CODEC_DMA-LPAIF_RXTX-RX-0 -cdkv 0xA3000003 -skv 0xA1000003 -pdkv 0xA2000004
+service agmhostless_loop_hsmic_rcv /vendor/bin/agmhostless -D 100 -P 103 -C 104 -c 1 -r 48000 -b 16 -T 60 -i CODEC_DMA-LPAIF_RXTX-TX-3 -o CODEC_DMA-LPAIF_RXTX-RX-0
+    user root
+    group root audio system
+    disabled
+    oneshot
+
+service agmhostless_loop_rcv /vendor/bin/agmhostless -D 100 -P 103 -C 104 -c 1 -r 48000 -b 16 -T 60 -i CODEC_DMA-LPAIF_RXTX-TX-3 -o CODEC_DMA-LPAIF_RXTX-RX-0 -cdkv 0xA3000004 -skv 0xA1000003 -pdkv 0xA2000004
+    user root
+    group root audio system
+    disabled
+    oneshot
+
+service agmhostless_loop_spk /vendor/bin/agmhostless -D 100 -P 103 -C 104 -c 1 -r 48000 -b 16 -T 60 -i CODEC_DMA-LPAIF_RXTX-TX-3 -o CODEC_DMA-LPAIF_RXTX-RX-0 -cdkv 0xA3000004 -skv 0xA1000003 -pdkv 0xA2000001
+    user root
+    group root audio system
+    disabled
+    oneshot
+
+service agmhostless_loop /vendor/bin/agmhostless -D 100 -P 103 -C 104 -c 1 -r 48000 -b 16 -T 60 -i CODEC_DMA-LPAIF_RXTX-TX-3 -o CODEC_DMA-LPAIF_RXTX-RX-0
+    user root
+    group root audio system
+    disabled
+    oneshot
+# add audio agmhostless_loop end
+
+on property:ro.boot.multisim_config=*
+    setprop persist.radio.multisim.config ${ro.boot.multisim_config}
