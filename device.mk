@@ -298,7 +298,6 @@ PRODUCT_SYSTEM_PROPERTIES += \
 
 # Overlays
 PRODUCT_PACKAGES += \
-    AOSPATopazFrameworksOverlay \
     TopazCarrierConfigOverlay \
     TopazFrameworksOverlay \
     TopazSettingsOverlay \

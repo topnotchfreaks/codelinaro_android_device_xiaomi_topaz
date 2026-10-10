@@ -72,9 +72,7 @@ BOARD_INIT_BOOT_HEADER_VERSION := 4
 BOARD_MKBOOTIMG_INIT_ARGS += --header_version $(BOARD_INIT_BOOT_HEADER_VERSION)
 
 BOARD_KERNEL_CMDLINE := \
-    disable_dma32=on \
-    mtdoops.fingerprint=$(AOSPA_VERSION) \
-    swinfo.fingerprint=$(AOSPA_VERSION)
+    disable_dma32=on
 
 BOARD_BOOTCONFIG := \
     androidboot.hardware=qcom \
@@ -126,7 +124,6 @@ TARGET_COPY_OUT_VENDOR_DLKM := vendor_dlkm
 BOARD_VENDOR_DLKMIMAGE_FILE_SYSTEM_TYPE := ext4
 
 # Power
-TARGET_POWER_FEATURE_EXT_LIB := //$(DEVICE_PATH):libpowerfeature_ext_topaz
 TARGET_TAP_TO_WAKE_NODE ?= "/proc/tp_gesture"
 
 # Recovery
